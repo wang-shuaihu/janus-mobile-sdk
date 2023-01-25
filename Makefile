@@ -8,16 +8,16 @@ folder:
 	mkdir -p third_party/
 
 boringssl:
-	if [ ! -d third_party/boringssl ]; then git clone https://boringssl.googlesource.com/boringssl third_party/boringssl && cd third_party/boringssl && git checkout 5f14300d2ba3681f14af8a97ec2026bc6ac2249b; fi
+	if [ ! -d third_party/boringssl ]; then git clone https://boringssl.googlesource.com/boringssl third_party/boringssl && cd third_party/boringssl && git checkout 1ccef4908ce04adc6d246262846f3cd8a111fa44; fi
 
 curl:
-	if [ ! -d third_party/curl ]; then git clone https://github.com/curl/curl third_party/curl && cd third_party/curl && git checkout curl-7_67_0; fi
+	if [ ! -d third_party/curl ]; then git clone https://github.com/curl/curl third_party/curl && cd third_party/curl && git checkout curl-7_87_0; fi
 
 #djinni:
 #	if [ ! -d third_party/djinni ]; then git clone https://github.com/helloiampau/djinni third_party/djinni && cd third_party/djinni && git checkout ac7d0d21449922143ccdeb1751b6a09a5a9ca790; fi
 
 json:
-	if [ ! -d third_party/json ]; then git clone https://github.com/nlohmann/json third_party/json && cd third_party/json && git checkout v3.7.0; fi
+	if [ ! -d third_party/json ]; then git clone https://github.com/nlohmann/json third_party/json && cd third_party/json && git checkout v3.11.2; fi
 
 googletest:
 	if [ ! -d third_party/googletest ]; then git clone https://github.com/google/googletest third_party/googletest && cd third_party/googletest && git checkout release-1.10.0; fi
