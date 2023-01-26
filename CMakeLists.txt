@@ -18,11 +18,22 @@ set(EXT_DIR ${ROOT}/cmake)
 
 set(ENV_ARGS -DCMAKE_CXX_STANDARD=11 -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release CACHE STRING "Env related external CMake arguments" FORCE)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wshadow -Werror -Wno-error=dangling-else -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-copy")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wshadow -Werror -Wno-error=dangling-else -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
 
+# disable tests
+set(DJINNI_BUILD_TESTING OFF CACHE INTERNAL "")
+set(DJINNI_SUPPORT_LIB_PATH ${THIRD_PARTY_DIR}/djinni-support-lib)
+
+# choose for which target language the djinni-support-lib should be compiled.
+# At least one of the following options must be set to true:
+# DJINNI_WITH_JNI, DJINNI_WITH_OBJC, DJINNI_WITH_PYTHON, DJINNI_WITH_CPPCLI
+# In this example the target language depends on the target system:
+set(DJINNI_WITH_JNI ON CACHE INTERNAL "")
 if(ANDROID)
-  add_definitions(-DANDROID)
-  set(ENV_ARGS ${ENV_ARGS} -DANDROID=ON -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=${ANDROID_PLATFORM} -DANDROID_NDK=${ANDROID_NDK} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE} -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
+    add_definitions(-DANDROID)
+    set(ENV_ARGS ${ENV_ARGS} -DANDROID=ON -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=${ANDROID_PLATFORM} -DANDROID_NDK=${ANDROID_NDK} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE} -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-copy")
 endif()
 
 # if(IOS)
@@ -46,6 +57,8 @@ ExternalProject_Add(json_proj
   SOURCE_DIR ${THIRD_PARTY_DIR}/json
   CMAKE_ARGS ${ENV_ARGS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/third_party -DJSON_BuildTests=OFF)
 
+add_subdirectory(${DJINNI_SUPPORT_LIB_PATH})
+
 # Janus library
 
 file(GLOB_RECURSE janus_srcs ${ROOT}/src/*.cc ${ROOT}/generated/cpp/*.cpp)
@@ -61,15 +74,26 @@ target_include_directories(janus
   ${ROOT}/include
   ${THIRD_PARTY_DIR}/include)
 
-find_library(CoreFoundation_Library CoreFoundation)
-find_library(SystemConfiguration_Library SystemConfiguration)
+if(ANDROID)
+  target_link_libraries(janus
+    curl
+    ssl
+    crypto)
+else()
+  find_library(CoreFoundation_Library CoreFoundation)
+  find_library(SystemConfiguration_Library SystemConfiguration)
 
-target_link_libraries(janus
-  curl
-  ssl
-  crypto
-  ${CoreFoundation_Library}
-  ${SystemConfiguration_Library})
+  target_link_libraries(janus
+    curl
+    ssl
+    crypto
+    ${CoreFoundation_Library}
+    ${SystemConfiguration_Library}
+    djinni-support-lib::djinni-support-lib)
+    
+endif()
+
+
 
 add_dependencies(janus
   json_proj
@@ -80,7 +104,7 @@ add_dependencies(janus
 # Android SDK Library
 
 if(ANDROID)
-  file(GLOB_RECURSE jni_srcs ${GENERATED_DIR}/jni/*.cpp ${THIRD_PARTY_DIR}/djinni/support-lib/jni/djinni_*.cpp)
+  file(GLOB_RECURSE jni_srcs ${GENERATED_DIR}/jni/*.cpp ${THIRD_PARTY_DIR}/djinni-support-lib/djinni/jni/djinni_*.cpp)
 
   add_library(janus-android-sdk
     SHARED
@@ -90,7 +114,7 @@ if(ANDROID)
     SYSTEM
     PUBLIC
     ${GENERATED_DIR}/cpp/janus/
-    ${THIRD_PARTY_DIR}/djinni/support-lib/jni/)
+    ${THIRD_PARTY_DIR}/djinni-support-lib/)
 
   target_link_libraries(janus-android-sdk
     janus)
