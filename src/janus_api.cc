@@ -86,12 +86,15 @@ namespace Janus {
     this->_delegate = delegate;
     this->_platform = std::static_pointer_cast<PlatformImpl>(platform);
 
+    this->_filelog =  spdlog::syslog_logger_mt("syslog", "spdlog-gyb", LOG_PID);
+
     auto bundle = Bundle::create();
     bundle->setString("plugin", conf->plugin());
     this->dispatch(JanusCommands::CREATE, bundle);
   }
 
   void JanusApi::dispatch(const std::string& command, const std::shared_ptr<Bundle>& payload) {
+    this->_filelog.get()->info("dispatch === {0}",command.c_str());
     payload->setString("command", command);
     auto transaction = this->_random->generate();
     auto handleId = this->handleId(payload);
@@ -105,6 +108,7 @@ namespace Janus {
 
     if(command == JanusCommands::ATTACH) {
       auto plugin = payload->getString("plugin", "");
+      this->_filelog.get()->info("dispatch plugin = {0}",plugin.c_str());
       this->_transport->send(Messages::attach(transaction, plugin), payload);
 
       return;
@@ -162,8 +166,10 @@ namespace Janus {
   }
 
   void JanusApi::onMessage(const nlohmann::json& message, const std::shared_ptr<Bundle>& context) {
+    auto strCommand = context->getString("command", "");
     auto header = message.value("janus", "");
     auto str = message.dump();
+    this->_filelog.get()->info("onMessage === {0}  {1}",strCommand.c_str(),str.c_str());
 
     if(header == "error") {
       auto errorContent = message.value("error", nlohmann::json::object());
@@ -189,6 +195,7 @@ namespace Janus {
       this->_handleId = message.value("data", nlohmann::json::object()).value("id", (int64_t) 0);
 
       auto pluginId = context->getString("plugin", "");
+      this->_filelog.get()->info("OnMessage Attach plugin = {0}",pluginId.c_str());
       this->_plugin = this->_platform->plugin(pluginId, this->_handleId, this->shared_from_this());
 
       this->readyState(ReadyState::READY);

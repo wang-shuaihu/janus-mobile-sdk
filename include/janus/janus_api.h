@@ -20,6 +20,9 @@
 #include "janus/plugin.hpp"
 #include "janus/janus_event_impl.h"
 
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/syslog_sink.h"
+
 #define JANUS_API "Janus API"
 
 namespace Janus {
@@ -71,6 +74,7 @@ namespace Janus {
 
       std::shared_ptr<Plugin> _plugin = nullptr;
       std::shared_ptr<PlatformImpl> _platform;
+      std::shared_ptr<spdlog::logger> _filelog;
       std::shared_ptr<TransportFactory> _transportFactory;
       std::shared_ptr<Transport> _transport;
       std::shared_ptr<Random> _random;

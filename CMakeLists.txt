@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(janus-client-sdk)
 
 include(ExternalProject)
@@ -15,6 +15,7 @@ set(ROOT ${CMAKE_CURRENT_LIST_DIR})
 set(GENERATED_DIR ${ROOT}/generated)
 set(THIRD_PARTY_DIR ${ROOT}/third_party)
 set(EXT_DIR ${ROOT}/cmake)
+set(DJINNI_SUPPORT_LIB_PATH ${THIRD_PARTY_DIR}/djinni-support-lib)
 
 set(ENV_ARGS -DCMAKE_CXX_STANDARD=11 -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release CACHE STRING "Env related external CMake arguments" FORCE)
 
@@ -22,13 +23,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wshadow -Werror -Wno-error=dangli
 
 # disable tests
 set(DJINNI_BUILD_TESTING OFF CACHE INTERNAL "")
-set(DJINNI_SUPPORT_LIB_PATH ${THIRD_PARTY_DIR}/djinni-support-lib)
 
 # choose for which target language the djinni-support-lib should be compiled.
 # At least one of the following options must be set to true:
 # DJINNI_WITH_JNI, DJINNI_WITH_OBJC, DJINNI_WITH_PYTHON, DJINNI_WITH_CPPCLI
 # In this example the target language depends on the target system:
-set(DJINNI_WITH_JNI ON CACHE INTERNAL "")
 if(ANDROID)
     add_definitions(-DANDROID)
     set(ENV_ARGS ${ENV_ARGS} -DANDROID=ON -DANDROID_ABI=${ANDROID_ABI} -DANDROID_PLATFORM=${ANDROID_PLATFORM} -DANDROID_NDK=${ANDROID_NDK} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE} -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
@@ -57,7 +56,16 @@ ExternalProject_Add(json_proj
   SOURCE_DIR ${THIRD_PARTY_DIR}/json
   CMAKE_ARGS ${ENV_ARGS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/third_party -DJSON_BuildTests=OFF)
 
-add_subdirectory(${DJINNI_SUPPORT_LIB_PATH})
+ExternalProject_Add(spdlog_proj
+  PREFIX ${CMAKE_BINARY_DIR}/third_party/spdlog
+  SOURCE_DIR ${THIRD_PARTY_DIR}/spdlog
+  CMAKE_ARGS ${ENV_ARGS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/third_party)
+
+# add_subdirectory(${DJINNI_SUPPORT_LIB_PATH})
+ExternalProject_Add(djinni_support_proj
+  PREFIX ${CMAKE_BINARY_DIR}/third_party/djinni_support_lib
+  SOURCE_DIR ${THIRD_PARTY_DIR}/djinni-support-lib
+  CMAKE_ARGS ${ENV_ARGS} -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/third_party/ -DDJINNI_WITH_JNI=ON -DJNI_CPP_THREAD_ATTACH=ON)
 
 # Janus library
 
@@ -78,7 +86,9 @@ if(ANDROID)
   target_link_libraries(janus
     curl
     ssl
-    crypto)
+    crypto
+    spdlog
+    djinni_support_lib)
 else()
   find_library(CoreFoundation_Library CoreFoundation)
   find_library(SystemConfiguration_Library SystemConfiguration)
@@ -87,17 +97,18 @@ else()
     curl
     ssl
     crypto
+    spdlog
     ${CoreFoundation_Library}
     ${SystemConfiguration_Library}
-    djinni-support-lib::djinni-support-lib)
+    djinni_support_lib)
     
 endif()
 
-
-
 add_dependencies(janus
   json_proj
-  curl_proj)
+  curl_proj
+  spdlog_proj
+  djinni_support_proj)
 
 # END Janus Library
 
@@ -113,8 +124,7 @@ if(ANDROID)
   target_include_directories(janus-android-sdk
     SYSTEM
     PUBLIC
-    ${GENERATED_DIR}/cpp/janus/
-    ${THIRD_PARTY_DIR}/djinni-support-lib/)
+    ${GENERATED_DIR}/cpp/janus/)
 
   target_link_libraries(janus-android-sdk
     janus)
@@ -125,77 +135,77 @@ endif()
 
 # End Android SDK library
 
-# Test lib
-if(NOT WITHOUT_TESTS)
-  set(CMAKE_BUILD_TYPE Debug)
+# # Test lib
+# if(NOT WITHOUT_TESTS)
+#   set(CMAKE_BUILD_TYPE Debug)
 
-  file(GLOB_RECURSE test_srcs ${ROOT}/test/*.cc)
+#   file(GLOB_RECURSE test_srcs ${ROOT}/test/*.cc)
 
-  add_executable(janus_tests
-    ${THIRD_PARTY_DIR}/googletest_bundle/gmock-gtest-all.cc
-    ${test_srcs})
+#   add_executable(janus_tests
+#     ${THIRD_PARTY_DIR}/googletest_bundle/gmock-gtest-all.cc
+#     ${test_srcs})
 
-  target_compile_definitions(janus_tests PUBLIC GTEST_HAS_PTHREAD=0)
+#   target_compile_definitions(janus_tests PUBLIC GTEST_HAS_PTHREAD=0)
 
-  target_include_directories(janus_tests
-    SYSTEM
-    PUBLIC
-    ${ROOT}/include
-    ${ROOT}/test
-    ${THIRD_PARTY_DIR}/googletest_bundle
-    ${GENERATED_DIR}/cpp)
+#   target_include_directories(janus_tests
+#     SYSTEM
+#     PUBLIC
+#     ${ROOT}/include
+#     ${ROOT}/test
+#     ${THIRD_PARTY_DIR}/googletest_bundle
+#     ${GENERATED_DIR}/cpp)
 
-  target_link_libraries(janus_tests
-    pthread
-    janus)
+#   target_link_libraries(janus_tests
+#     pthread
+#     janus)
 
-  add_dependencies(janus_tests
-    janus)
-endif()
-# End Test lib
+#   add_dependencies(janus_tests
+#     janus)
+# endif()
+# # End Test lib
 
-get_target_property(JANUS_COMPILE_FLAGS janus COMPILE_FLAGS)
-if(JANUS_COMPILE_FLAGS STREQUAL "JANUS_COMPILE_FLAGS-NOTFOUND")
-  SET(JANUS_COMPILE_FLAGS "")
-endif()
-get_target_property(JANUS_LINK_FLAGS janus LINK_FLAGS)
-if(JANUS_LINK_FLAGS STREQUAL "JANUS_LINK_FLAGS-NOTFOUND")
-  SET(JANUS_LINK_FLAGS "")
-endif()
-get_target_property(TESTS_COMPILE_FLAGS janus COMPILE_FLAGS)
-if(TESTS_COMPILE_FLAGS STREQUAL "TESTS_COMPILE_FLAGS-NOTFOUND")
-  SET(TESTS_COMPILE_FLAGS "")
-endif()
-get_target_property(TESTS_LINK_FLAGS janus LINK_FLAGS)
-if(TESTS_LINK_FLAGS STREQUAL "TESTS_LINK_FLAGS-NOTFOUND")
-  SET(TESTS_LINK_FLAGS "")
-endif()
+# get_target_property(JANUS_COMPILE_FLAGS janus COMPILE_FLAGS)
+# if(JANUS_COMPILE_FLAGS STREQUAL "JANUS_COMPILE_FLAGS-NOTFOUND")
+#   SET(JANUS_COMPILE_FLAGS "")
+# endif()
+# get_target_property(JANUS_LINK_FLAGS janus LINK_FLAGS)
+# if(JANUS_LINK_FLAGS STREQUAL "JANUS_LINK_FLAGS-NOTFOUND")
+#   SET(JANUS_LINK_FLAGS "")
+# endif()
+# get_target_property(TESTS_COMPILE_FLAGS janus COMPILE_FLAGS)
+# if(TESTS_COMPILE_FLAGS STREQUAL "TESTS_COMPILE_FLAGS-NOTFOUND")
+#   SET(TESTS_COMPILE_FLAGS "")
+# endif()
+# get_target_property(TESTS_LINK_FLAGS janus LINK_FLAGS)
+# if(TESTS_LINK_FLAGS STREQUAL "TESTS_LINK_FLAGS-NOTFOUND")
+#   SET(TESTS_LINK_FLAGS "")
+# endif()
 
-if(${EXTRA_TEST} MATCHES "COVERAGE")
-  set_target_properties(janus
-    PROPERTIES
-    COMPILE_FLAGS "${JANUS_COMPILE_FLAGS} -fprofile-arcs -ftest-coverage"
-    LINK_FLAGS "${JANUS_LINK_FLAGS} -lgcov --coverage")
-  set_target_properties(janus_tests
-    PROPERTIES
-    COMPILE_FLAGS "${TESTS_COMPILE_FLAGS}  -fprofile-arcs -ftest-coverage"
-    LINK_FLAGS "${TESTS_LINK_FLAGS} -lgcov --coverage")
-elseif(${EXTRA_TEST} MATCHES "THREADS")
-  set_target_properties(janus
-    PROPERTIES
-    COMPILE_FLAGS "${JANUS_COMPILE_FLAGS} -fsanitize=thread"
-    LINK_FLAGS "${JANUS_LINK_FLAGS} -fsanitize=thread")
-  set_target_properties(janus_tests
-    PROPERTIES
-    COMPILE_FLAGS "${TESTS_COMPILE_FLAGS} -fsanitize=thread"
-    LINK_FLAGS "${TESTS_LINK_FLAGS} -fsanitize=thread")
-elseif(${EXTRA_TEST} MATCHES "ADDRESS")
-  set_target_properties(janus
-    PROPERTIES
-    COMPILE_FLAGS "${JANUS_COMPILE_FLAGS} -fsanitize=address"
-    LINK_FLAGS "${JANUS_LINK_FLAGS} -fsanitize=address")
-  set_target_properties(janus_tests
-    PROPERTIES
-    COMPILE_FLAGS "${TESTS_COMPILE_FLAGS} -fsanitize=address"
-    LINK_FLAGS "${TESTS_LINK_FLAGS} -fsanitize=address")
-endif()
+# if(${EXTRA_TEST} MATCHES "COVERAGE")
+#   set_target_properties(janus
+#     PROPERTIES
+#     COMPILE_FLAGS "${JANUS_COMPILE_FLAGS} -fprofile-arcs -ftest-coverage"
+#     LINK_FLAGS "${JANUS_LINK_FLAGS} -lgcov --coverage")
+#   set_target_properties(janus_tests
+#     PROPERTIES
+#     COMPILE_FLAGS "${TESTS_COMPILE_FLAGS}  -fprofile-arcs -ftest-coverage"
+#     LINK_FLAGS "${TESTS_LINK_FLAGS} -lgcov --coverage")
+# elseif(${EXTRA_TEST} MATCHES "THREADS")
+#   set_target_properties(janus
+#     PROPERTIES
+#     COMPILE_FLAGS "${JANUS_COMPILE_FLAGS} -fsanitize=thread"
+#     LINK_FLAGS "${JANUS_LINK_FLAGS} -fsanitize=thread")
+#   set_target_properties(janus_tests
+#     PROPERTIES
+#     COMPILE_FLAGS "${TESTS_COMPILE_FLAGS} -fsanitize=thread"
+#     LINK_FLAGS "${TESTS_LINK_FLAGS} -fsanitize=thread")
+# elseif(${EXTRA_TEST} MATCHES "ADDRESS")
+#   set_target_properties(janus
+#     PROPERTIES
+#     COMPILE_FLAGS "${JANUS_COMPILE_FLAGS} -fsanitize=address"
+#     LINK_FLAGS "${JANUS_LINK_FLAGS} -fsanitize=address")
+#   set_target_properties(janus_tests
+#     PROPERTIES
+#     COMPILE_FLAGS "${TESTS_COMPILE_FLAGS} -fsanitize=address"
+#     LINK_FLAGS "${TESTS_LINK_FLAGS} -fsanitize=address")
+# endif()

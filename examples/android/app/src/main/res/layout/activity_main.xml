@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:ems="10"
         android:inputType="text"
-        android:text="http://10.0.2.2:8088/janus" />
+        android:text="http://rtc.slaman.cn:8088/janus" />
 
     <Button
         android:id="@+id/api_button"
