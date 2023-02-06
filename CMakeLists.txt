@@ -75,7 +75,7 @@ add_dependencies(janus
 # Android SDK Library
 
 if(ANDROID)
-  file(GLOB_RECURSE jni_srcs ${GENERATED_DIR}/jni/*.cpp ${THIRD_PARTY_DIR}/djinni/support-lib/jni/djinni_*.cpp)
+  file(GLOB_RECURSE jni_srcs ${GENERATED_DIR}/jni/*.cpp ${THIRD_PARTY_DIR}/djinni/jni/djinni_*.cpp)
 
   add_library(janus-android-sdk
     SHARED
@@ -85,7 +85,8 @@ if(ANDROID)
     SYSTEM
     PUBLIC
     ${GENERATED_DIR}/cpp/janus/
-    ${THIRD_PARTY_DIR}/djinni/support-lib/jni/)
+    ${THIRD_PARTY_DIR}/
+    ${THIRD_PARTY_DIR}/djinni/jni/)
 
   target_link_libraries(janus-android-sdk
     janus)

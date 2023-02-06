@@ -2,8 +2,9 @@ package com.github.helloiampau.app;
 
 import android.Manifest;
 import android.app.Activity;
-import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.MutableLiveData;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+
 
 import com.github.helloiampau.app.custom.CustomPluginFactory;
 import com.github.helloiampau.janus.generated.Bundle;
